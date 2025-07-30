@@ -204,7 +204,7 @@ Usuario.semanas_cotizadas_descontadas_fcn()
 Usuario.fecha_emision_reporte_fcn()
 
 df = Usuario.tabla_datos()
-st.sidebar.table(df)
+# st.sidebar.table(df)
 st.sidebar.dataframe(df, height=300)  # Adjust the height as needed
 
 # Tabla de Fechas Generales
