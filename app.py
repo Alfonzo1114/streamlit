@@ -18,10 +18,8 @@ uploaded_file = st.file_uploader(label="Sube un PDF",
 
 def file_path_fcn(file_path=None):
     if file_path is None:
-        file_path = '/home/carlos-alfonzo/PycharmProjects/streamlitapp/REPORTES/LUPITA.pdf'
+        file_path = 'REPORTES/LUPITA.pdf'
     return file_path
-
-# file_path ='/home/carlos-alfonzo/PycharmProjects/streamlitapp/REPORTES/GONZALO.pdf'
 
 file_path = file_path_fcn(file_path=uploaded_file)
 
@@ -208,6 +206,7 @@ df = Usuario.tabla_datos()
 st.sidebar.dataframe(df, height=300)  # Adjust the height as needed
 
 # Tabla de Fechas Generales
+@st.cache_resource
 class FechasGenerales:
     def __init__(self, texto, FechaEmisionReporte):
         self.texto = texto
@@ -340,3 +339,100 @@ st.markdown("## Fecha de ultima baja")
 st.write("La fecha de última baja es:", fechasUltimaBaja)
 
 # Historial Laboral Desglosado
+@st.cache_resource
+def HistorialLaboralTabla(texto):
+    # Define the search string
+    BloqueInicio = 'Nombre del patrón'
+    BloqueFinal = '/* Valor del último salario base de cotización diario en pesos.'
+    # tieneVigencia = 0  # Placeholder; define as needed
+    # FechasUltimaBaja = datetime(2023, 1, 1)  # Placeholder; replace with actual date if applicable
+
+    # Find occurrences of the start and end blocks
+    Inicio = [m.start() for m in re.finditer(re.escape(BloqueInicio), texto)]
+    Final = [m.start() for m in re.finditer(re.escape(BloqueFinal), texto)]
+    HistoriaLaboral = []
+
+    # Extract information between blocks
+    for start, end in zip(Inicio, Final):
+        substring = texto[start + len(BloqueInicio):end].strip()
+        output = [line.strip() for line in substring.splitlines() if len(line.strip()) > 1]
+        print('step')
+        HistoriaLaboral.append(output)
+
+    # Initialize an empty DataFrame for the final table
+    HistoriaLaboralTable = pd.DataFrame()
+    # target_strings = {'ALTA', 'REINGRESO', 'MODIFICACION DE SALARIO', 'BAJA'}
+    target_strings = {'ALTA', 'REINGRESO', 'MODIFICACION', 'BAJA'}
+    Movimiento = list()
+    FechaMovimiento = list()
+    Sueldo = list()
+    Empleador = list()
+    EntidadFederativa = list()
+    for entry in HistoriaLaboral:
+        for line in entry:
+            # if any(string in line for string in target_strings):
+            if any(string in line.split()[0] for string in target_strings):
+                Empleador.append(entry[0])
+                EntidadFederativa.append(entry[2].split()[2:])
+                array = line.split()
+                if array[0] == 'MODIFICACION':
+                    Movimiento.append('MODIFICACION DE SALARIO')
+                else:
+                    Movimiento.append(array[0])
+                FechaMovimiento.append(array[-3])
+                Sueldo.append(array[-1])
+
+    # Convert 'Sueldo' elements to float before formatting
+    Sueldo_formatted = [float(s) for s in Sueldo]
+    HistoriaLaboralTable_str = pd.DataFrame({
+        'Movimiento': Movimiento,
+        'Fecha de Movimiento': FechaMovimiento,
+        'Sueldo': Sueldo, #np.vectorize(lambda x: "${:,.2f}".format(x))(Sueldo_formatted),
+        'Empleador': Empleador,
+        'Entidad Federativa': EntidadFederativa
+    })
+
+    HistoriaLaboralTable_str['Entidad Federativa'] = HistoriaLaboralTable_str['Entidad Federativa'].apply(lambda x: " ".join(x))
+
+    HistoriaLaboralTable_num = HistoriaLaboralTable_str.copy()
+    HistoriaLaboralTable_num['Sueldo'] = Sueldo_formatted
+    return HistoriaLaboralTable_str, HistoriaLaboralTable_num
+
+HistoriaLaboralTable_str, HistoriaLaboralTable_num = HistorialLaboralTabla(texto)
+@st.cache_resource
+def HistorialLaboralDesglosada_fcn(texto, tieneVigencia, FechasUltimaBaja):
+    # Define the search string
+    HistoriaLaboralTable, _ = HistorialLaboralTabla(texto)
+
+    from datetime import timedelta
+    Bajas = np.where(HistoriaLaboralTable['Movimiento'] == 'BAJA')[0]
+    FechaFinal = HistoriaLaboralTable['Fecha de Movimiento'].values
+
+    for idx in range(len(HistoriaLaboralTable)):
+        FechaFinal[idx] = datetime.strptime(FechaFinal[idx], '%d/%m/%Y').date()
+        if idx not in Bajas:
+            FechaFinal[idx] =  FechaFinal[idx] - timedelta(days=1)
+
+
+    FechaFinal = np.roll(FechaFinal, 1)
+
+    if tieneVigencia:
+        FechaFinal[0] = FechasUltimaBaja
+
+    HistoriaLaboralDesglosada = HistoriaLaboralTable.copy()
+    HistoriaLaboralDesglosada['Fecha Final'] = FechaFinal
+    HistoriaLaboralDesglosada.drop(Bajas, inplace=True)
+    HistoriaLaboralDesglosada = HistoriaLaboralDesglosada.rename(columns={"Fecha de Movimiento": "Fecha Inicial"})
+
+    HistoriaLaboralDesglosada["Fecha Inicial"] = pd.to_datetime(HistoriaLaboralDesglosada["Fecha Inicial"], format='%d/%m/%Y')
+
+    HistoriaLaboralDesglosada["Fecha Inicial"] = HistoriaLaboralDesglosada["Fecha Inicial"] + timedelta(days = 1)
+    # Move the column "FechaFinal" to be after "FechaInicial"
+    cols = list(HistoriaLaboralDesglosada.columns)
+    cols.insert(cols.index("Fecha Inicial") + 1, cols.pop(cols.index("Fecha Final")))
+    HistoriaLaboralDesglosada = HistoriaLaboralDesglosada[cols]
+    return HistoriaLaboralDesglosada
+
+HistoriaLaboralTable = HistorialLaboralDesglosada_fcn(texto, tieneVigencia, fechasUltimaBaja)
+st.markdown('## Historial Laboral Desglosado')
+st.write(HistoriaLaboralTable)
