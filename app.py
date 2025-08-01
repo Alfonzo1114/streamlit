@@ -14,6 +14,8 @@ st.sidebar.radio("Salario Asignado", ('1000', '2000'))
 
 # Get the file from Streamlit
 uploaded_file = st.file_uploader(label="Sube un PDF",
+                                label_visibility=("visible"),
+                                accept_multiple_files=False,
                                  type=["pdf"])
 
 def file_path_fcn(file_path=None):
@@ -356,8 +358,8 @@ def HistorialLaboralTabla(texto):
     for start, end in zip(Inicio, Final):
         substring = texto[start + len(BloqueInicio):end].strip()
         output = [line.strip() for line in substring.splitlines() if len(line.strip()) > 1]
-        print('step')
         HistoriaLaboral.append(output)
+
 
     # Initialize an empty DataFrame for the final table
     HistoriaLaboralTable = pd.DataFrame()
@@ -431,8 +433,146 @@ def HistorialLaboralDesglosada_fcn(texto, tieneVigencia, FechasUltimaBaja):
     cols = list(HistoriaLaboralDesglosada.columns)
     cols.insert(cols.index("Fecha Inicial") + 1, cols.pop(cols.index("Fecha Final")))
     HistoriaLaboralDesglosada = HistoriaLaboralDesglosada[cols]
+    # We will change the date format for the column "Fecha Inicial"
+    HistoriaLaboralDesglosada['Fecha Inicial'] = pd.to_datetime(HistoriaLaboralDesglosada['Fecha Inicial'],
+                                                                format='%d/%m/%Y').dt.date
     return HistoriaLaboralDesglosada
 
 HistoriaLaboralTable = HistorialLaboralDesglosada_fcn(texto, tieneVigencia, fechasUltimaBaja)
 st.markdown('## Historial Laboral Desglosado')
 st.write(HistoriaLaboralTable)
+
+# Tabla de salarios
+@st.cache_resource
+def salario_promedio_250tabla(HistoriaLaboralDesglosada):
+    salario_promedio_250 = HistoriaLaboralDesglosada[["Fecha Inicial", "Fecha Final", "Sueldo"]]
+    salario_promedio_250 = salario_promedio_250.sort_values(by=["Fecha Inicial", "Fecha Final"], ascending=[False, False])
+    # We will change the date format for the first column
+    salario_promedio_250['Fecha Inicial'] = pd.to_datetime(salario_promedio_250['Fecha Inicial'], format='%d/%m/%Y').dt.date
+    return salario_promedio_250
+
+tabla_salarios = salario_promedio_250tabla(HistoriaLaboralTable)
+st.markdown('## Tabla de Salarios')
+st.write(tabla_salarios)
+
+# Tabla de Salarios Promedio 250
+SEMANAS_CONTAR = st.sidebar.slider(label='Número de semanas a contar', min_value=0, max_value=Usuario.semanas_cotizadas, value=250)
+title_str = '## Tabla de Salarios Promedio para el cálculo de las últimas ' + str(SEMANAS_CONTAR) + ' semanas'
+st.markdown(title_str)
+@st.cache_resource
+def salario_promedio_fcn(semanas_contar, semanas_reconocidas, salario_promedio_250):
+    if semanas_contar == 0:
+        return 0, pd.DataFrame()
+  # Reset the index of salario_promedio_250 to ensure it starts from 0
+    salario_promedio_250 = salario_promedio_250.reset_index(drop=True)
+    # Convert Fecha Inicial and Fecha Final columns to datetime.date
+    salario_promedio_250['Fecha Inicial'] = pd.to_datetime(salario_promedio_250['Fecha Inicial']).dt.date
+    salario_promedio_250['Fecha Final'] = pd.to_datetime(salario_promedio_250['Fecha Final']).dt.date
+    # Initialize necessary variables
+    salario_acumulado_periodo = np.zeros(len(salario_promedio_250['Fecha Inicial']))
+    fecha_superior = salario_promedio_250['Fecha Final']
+    fecha_inferior = salario_promedio_250['Fecha Inicial']
+    salario_diario =  np.array(salario_promedio_250['Sueldo']).astype(float)
+    # semanas_cotizadas = np.full(len(salario_promedio_250['Fecha Inicial']), semanas_reconocidas)
+    semanas_periodo = salario_acumulado_periodo.copy()
+    fecha_corte = [None] * len(fecha_superior)
+    semanas_acumuladas = salario_acumulado_periodo.copy()
+    semanas_cuenta = salario_acumulado_periodo.copy()
+
+    for idx in range(len(fecha_superior)):
+        # Calculate weeks in each period
+        semanas_periodo[idx] = (fecha_superior[idx] - fecha_inferior[idx]).days / 7 + 1 / 7
+        if idx == 0:
+            if semanas_periodo[idx] <= semanas_contar:
+                fecha_corte[idx] = fecha_inferior[idx]
+            else:
+                fecha_corte[idx] = fecha_superior[idx] - timedelta(weeks=semanas_contar)
+
+            semanas_cuenta[idx] = (fecha_superior[idx] - fecha_inferior[idx]).days / 7 + 1 / 7
+            semanas_acumuladas[idx] = semanas_periodo[idx]
+        else:
+            semanas_acumuladas[idx] = semanas_periodo[idx]
+
+            if semanas_acumuladas[idx - 1] < semanas_contar:
+                if semanas_acumuladas[idx - 1] + semanas_periodo[idx] < semanas_contar:
+                    if fecha_corte[idx - 1] is None:  # Check if previous fecha_corte is None
+                        fecha_corte[idx] = fecha_inferior[idx]  # Use fecha_inferior if previous is None
+                    else:
+                        fecha_corte[idx] = min(fecha_corte[idx - 1], fecha_inferior[idx])  # Use min if previous is not None
+
+                else:
+                    fecha_corte[idx] = fecha_superior[idx] - timedelta(weeks=(semanas_contar - semanas_acumuladas[idx - 1]))
+            else:
+                fecha_corte[idx] = fecha_corte[idx - 1]
+
+            if fecha_corte[idx] > fecha_superior[idx]:
+                semanas_cuenta[idx] = 0
+            else:
+                semanas_cuenta[idx] = (fecha_superior[idx] - max(fecha_corte[idx], fecha_inferior[idx])).days / 7 + 1 / 7
+
+            if semanas_acumuladas[idx - 1] == semanas_contar:
+                semanas_acumuladas[idx] = semanas_contar
+            else:
+                if semanas_acumuladas[idx - 1] + semanas_cuenta[idx] > semanas_contar:
+                    semanas_acumuladas[idx] = semanas_contar
+                else:
+                    if fecha_corte[idx] != fecha_inferior[idx]:
+                        semanas_acumuladas[idx] = semanas_acumuladas[idx - 1] + (max(fecha_corte[idx - 1], fecha_superior[idx]) - fecha_corte[idx]).days / 7 + 1 / 7
+                    else:
+                        semanas_acumuladas[idx] = semanas_acumuladas[idx - 1] + (min(fecha_corte[idx - 1], fecha_superior[idx]) - fecha_corte[idx]).days / 7 + 1 / 7
+
+        salario_acumulado_periodo[idx] = salario_diario[idx] * 7 * semanas_cuenta[idx] if semanas_cuenta[idx] > 0 else 0
+
+    tabla_salario_promedio = pd.DataFrame({
+        'Fecha Inicio': fecha_inferior,
+        'Fecha Final': fecha_superior,
+        # Convert to string with currency format
+        'Salario Diario': np.vectorize(lambda x: "${:,.2f}".format(x))(salario_diario),
+        # 'Semanas Cotizadas': np.round(semanas_cotizadas, 1),
+        'Semanas totales en el periodo': np.round(semanas_periodo, 1),
+        'Fecha de Corte': pd.to_datetime(fecha_corte),
+        'Semanas tomadas en cuenta': np.round(semanas_cuenta, 1),
+        'Salario Acumulado en el Periodo': np.vectorize(lambda x: "${:,.2f}".format(x))(np.round(salario_acumulado_periodo)),
+        'Semanas Acumuladas Totales': np.round(semanas_acumuladas, 1)
+    })
+    tabla_salario_promedio['Fecha de Corte'] = tabla_salario_promedio['Fecha de Corte'].dt.date
+    salario_acumulado = np.sum(salario_acumulado_periodo)
+
+    if semanas_reconocidas < semanas_contar:
+        salario_promedio_diario = salario_acumulado / (semanas_reconocidas * 7)
+    else:
+        salario_promedio_diario = salario_acumulado / (semanas_contar * 7)
+
+    return salario_promedio_diario, tabla_salario_promedio
+
+SemanasReconocidas = Usuario.semanas_totales
+SALARIO_PROMEDIO_DIARIO, TABLA_SALARIO_PROMEDIO = salario_promedio_fcn(SEMANAS_CONTAR, SemanasReconocidas, tabla_salarios)
+
+st.sidebar.markdown('## Salario Promedio Diario')
+st.sidebar.write(round(SALARIO_PROMEDIO_DIARIO, 2))
+
+st.markdown('## Tabla de Salarios Promedio')
+st.write(TABLA_SALARIO_PROMEDIO)
+
+#%%
+@st.cache_data
+def fecha_pension_minima(fecha_nacimiento, fechasUltimaBaja):
+    if isinstance(fecha_nacimiento, str):
+        fecha_nacimiento = datetime.strptime(fecha_nacimiento, '%b/%d/%Y')
+    elif isinstance(fechasUltimaBaja, str):
+        fechasUltimaBaja = datetime.strptime(fechasUltimaBaja, '%d/%b/%Y').date()
+
+    # edad_actual = (datetime.today().date() - fecha_nacimiento.date()).days // 365
+    edad_actual = round((datetime.today().date() - fecha_nacimiento).days / 365, 2)
+    fecha_60 = fecha_nacimiento + relativedelta(years=60)
+    print(f"Edad al dia de hoy: {edad_actual}")
+    print(f"Fecha en que cumple 60 años: {fecha_60}")
+    print(f"FECHA DE ULTIMA BAJA: {fechasUltimaBaja}")
+    fecha_pension_minima = max(fecha_60, fechasUltimaBaja)
+    return fecha_pension_minima
+
+fecha_pension_minima = fecha_pension_minima(fecha_nacimiento=Usuario.fecha_nacimiento, fechasUltimaBaja=fechasUltimaBaja)
+
+st.sidebar.markdown('## Selección de Fecha de Pensión')
+
+fecha_pension = st.sidebar.date_input(label='Fecha de Pensión', value=fecha_pension_minima)
