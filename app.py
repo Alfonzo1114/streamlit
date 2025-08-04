@@ -8,7 +8,7 @@ import pandas as pd
 import numpy as np
 from dateutil.relativedelta import relativedelta
 
-st.title("Reporte de Semanas Cotizadas")
+st.title("Cálculo de Pensión Manual")
 st.sidebar.title("Parametros Generales del Usuario")
 st.sidebar.radio("Salario Asignado", ('1000', '2000'))
 
@@ -36,6 +36,9 @@ def pdf_a_texto(file_path):
 
 texto = pdf_a_texto(file_path)
 
+# Cálculo de Pensión Manual
+# EDAD
+# edad_pension = st.
 @st.cache_resource # cache the function
 class DatosGenerales:
     def __init__(self, texto):
@@ -227,14 +230,14 @@ class FechasGenerales:
         # Calculate the end index
         ultima_final = ultima_baja + len(bajas_string) + value_added
         # Extract the desired substring
-        tiene_vigencia = "vigente" in texto.lower() #Check if tiene_vigencia is contained in the text
+        sigue_cotizando = "vigente" in texto.lower() #Check if sigue_cotizando is contained in the text
         # Initialize an array to store dates
         fecha_bajas = np.zeros(len(bajas), dtype=object)
         # Note: num2cell is not needed in Python, as numpy arrays can store objects
 
         for idx, baja in enumerate(bajas):
             if idx == 0:
-                if not tiene_vigencia:
+                if not sigue_cotizando:
                     fechas_ultima_baja = datetime.strptime(texto[ultima_baja + len(bajas_string):ultima_final].strip(), "%d/%m/%Y")
                     fecha_bajas[idx] = fechas_ultima_baja
                 else:
@@ -306,7 +309,19 @@ class FechasGenerales:
 
         # Method using vectorize
         def format_date(date_str):
-            date = datetime.strptime(str(date_str), '%Y-%m-%d %H:%M:%S')
+            try:
+                # First try with time format
+                date = datetime.strptime(str(date_str), '%Y-%m-%d %H:%M:%S')
+            except ValueError:
+                try:
+                    # If that fails, try with just date
+                    date = datetime.strptime(str(date_str), '%Y-%m-%d')
+                except ValueError:
+                    # If both fail, try to parse as datetime object directly
+                    if isinstance(date_str, (datetime, date)):
+                        date = date_str
+                    else:
+                        raise ValueError(f"Unsupported date format: {date_str}")
             return date.strftime('%d/%b/%Y')
 
         vectorized_format = np.vectorize(format_date)
@@ -322,7 +337,7 @@ class FechasGenerales:
             'Patrones': patrones,
             'Entidad federativa': entidad_federativa
         })
-        return FechasGenerales, tiene_vigencia, fechas_ultima_baja
+        return FechasGenerales, sigue_cotizando, fechas_ultima_baja
 
 fechas_generales = FechasGenerales(texto=texto, FechaEmisionReporte=Usuario.fecha_emision_reporte)
 fechasGenerales, tieneVigencia, fechasUltimaBaja = fechas_generales.tabla_fechas_generales()
@@ -571,8 +586,10 @@ def fecha_pension_minima(fecha_nacimiento, fechasUltimaBaja):
     fecha_pension_minima = max(fecha_60, fechasUltimaBaja)
     return fecha_pension_minima
 
-fecha_pension_minima = fecha_pension_minima(fecha_nacimiento=Usuario.fecha_nacimiento, fechasUltimaBaja=fechasUltimaBaja)
+fecha_pension_minima = fecha_pension_minima(fecha_nacimiento=Usuario.fecha_nacimiento,
+                                            fechasUltimaBaja=fechasUltimaBaja)
 
 st.sidebar.markdown('## Selección de Fecha de Pensión')
 
-fecha_pension = st.sidebar.date_input(label='Fecha de Pensión', value=fecha_pension_minima)
+fecha_pension = st.sidebar.date_input(label='Fecha de Pensión',
+                                      value=fecha_pension_minima)
