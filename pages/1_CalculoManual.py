@@ -22,13 +22,15 @@ year = st.number_input(label="Año de pensión",
 semanas_reconocidas = st.number_input(label="Semana de Reconocidas",
                                       min_value=500,
                                       step=1)
+
 salario_promedio = st.number_input(
     label="Salario Diario Promedio de las últimas 250 semanas cotizadas (MXN)",
+    min_value=1.0,
     format="%.2f"
 )
-
+# We will format it as a percentage
 porcentaje_asignaciones = st.number_input(max_value=100,
-                                          min_value=0,
+                                          min_value=15,
                                           label="Porcentaje de Asignaciones Familiares")
 porcentaje_asignaciones /= 100
 st.write("% de pensión de acuerdo a tu edad:", porcentaje_asignaciones)
@@ -53,8 +55,6 @@ class PensionManual:
             salario_minimo_mensual = out.iloc[0, 4]
             pension_minima_garantizada = out.iloc[0, -1]
             salario_maximo_asignado_diario = out.iloc[0, 6]
-
-            print(f"Los siguientes datos son para el año: {self.year}")
 
             # We will also create a pandas dataframe
             df = pd.DataFrame({

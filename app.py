@@ -9,11 +9,14 @@ import numpy as np
 from dateutil.relativedelta import relativedelta
 
 st.title("Cálculo de Pensión Manual")
+
 st.sidebar.title("Parametros Generales del Usuario")
 st.sidebar.radio("Salario Asignado", ('1000', '2000'))
 
+sinistra, destra = st.columns(2)
+sinistra.button("Cargar ejemplo")
 # Get the file from Streamlit
-uploaded_file = st.file_uploader(label="Sube un PDF",
+uploaded_file = destra.file_uploader(label="Sube un PDF",
                                 label_visibility=("visible"),
                                 accept_multiple_files=False,
                                  type=["pdf"])
@@ -36,9 +39,7 @@ def pdf_a_texto(file_path):
 
 texto = pdf_a_texto(file_path)
 
-# Cálculo de Pensión Manual
-# EDAD
-# edad_pension = st.
+
 @st.cache_resource # cache the function
 class DatosGenerales:
     def __init__(self, texto):
