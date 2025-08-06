@@ -1,10 +1,13 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import time
 
 st.title("Cálculo Manual")
 
-edad_pension = st.selectbox(
+wid_1, wid_2, wid_3 = st.columns(3)
+
+edad_pension = wid_1.selectbox(
     "Edad al pensionarse",
     ("60", "61", "62", "63", "64", "65+"),
 )
@@ -15,26 +18,28 @@ else:
     edad_pension = int(edad_pension)
 
 
-year = st.number_input(label="Año de pensión",
+year = wid_2.number_input(label="Año de pensión",
                        min_value=2015,
                        step=1)
 
-semanas_reconocidas = st.number_input(label="Semana de Reconocidas",
+semanas_reconocidas = wid_3.number_input(label="Semana de Reconocidas",
                                       min_value=500,
                                       step=1)
 
-salario_promedio = st.number_input(
-    label="Salario Diario Promedio de las últimas 250 semanas cotizadas (MXN)",
+wid_4, wid_5 = st.columns(2)
+salario_promedio = wid_4.number_input(
+    label="Salario Diario Promedio últimas 250 semanas (MXN)",
     min_value=1.0,
     format="%.2f"
 )
 # We will format it as a percentage
-porcentaje_asignaciones = st.number_input(max_value=100,
+porcentaje_asignaciones = wid_5.number_input(max_value=100,
                                           min_value=15,
                                           label="Porcentaje de Asignaciones Familiares")
 porcentaje_asignaciones /= 100
-st.write("% de pensión de acuerdo a tu edad:", porcentaje_asignaciones)
+calcular_pension = st.button("Calcular Pensión")
 
+st.write(calcular_pension)
 # @st.cache_resource
 class PensionManual:
     def __init__(self, edad_pension, year, semanas_reconocidas, salario_promedio, porcentaje_asignaciones):
@@ -208,13 +213,16 @@ class PensionManual:
         return pension_df, detalles_df
 
 # Example Usage
-pension_manual = PensionManual(edad_pension=edad_pension,
-                               year=year, semanas_reconocidas=semanas_reconocidas,
-                               salario_promedio=salario_promedio,
-                               porcentaje_asignaciones=porcentaje_asignaciones)
+if calcular_pension:
+    with st.spinner('Procesando...'):
+        time.sleep(3)
+    pension_manual = PensionManual(edad_pension=edad_pension,
+                                   year=year, semanas_reconocidas=semanas_reconocidas,
+                                   salario_promedio=salario_promedio,
+                                   porcentaje_asignaciones=porcentaje_asignaciones)
 
-pension_df, detalles_df = pension_manual.calculo_pension()
+    pension_df, detalles_df = pension_manual.calculo_pension()
 
-st.dataframe(pension_df)
+    st.dataframe(pension_df)
 
-st.dataframe(detalles_df)
+    st.dataframe(detalles_df)

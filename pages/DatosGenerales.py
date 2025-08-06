@@ -1,6 +1,7 @@
 import streamlit as st
 import calendar
 import warnings
+import base64
 import pdfplumber
 import re
 from datetime import datetime, timedelta, date
@@ -8,27 +9,38 @@ import pandas as pd
 import numpy as np
 from dateutil.relativedelta import relativedelta
 
-st.title("Cálculo de Pensión Manual")
+st.title("Datos Generales")
 
 st.sidebar.title("Parametros Generales del Usuario")
-st.sidebar.radio("Salario Asignado", ('1000', '2000'))
 
 sinistra, destra = st.columns(2)
 sinistra.button("Cargar ejemplo")
 # Get the file from Streamlit
 uploaded_file = destra.file_uploader(label="Sube un PDF",
-                                label_visibility=("visible"),
+                                label_visibility=("visible" ),
                                 accept_multiple_files=False,
                                  type=["pdf"])
 
+@st.cache_resource
 def file_path_fcn(file_path=None):
     if file_path is None:
-        file_path = 'REPORTES/LUPITA.pdf'
+        file_path = 'REPORTES/RICARDO.pdf'
     return file_path
 
 file_path = file_path_fcn(file_path=uploaded_file)
 
+# Convert PDF to base64
+if uploaded_file is not None:
+    base64_pdf = base64.b64encode(uploaded_file.read()).decode('utf-8')
 
+    # Embed PDF in HTML
+    pdf_display = f"""
+    <iframe src="data:application/pdf;base64,{base64_pdf}" width="450" height="500" type="application/pdf"></iframe>
+    """
+
+    # Display PDF
+    st.sidebar.markdown(pdf_display, unsafe_allow_html=True)
+@st.cache_resource
 def pdf_a_texto(file_path):
     '''Conversion del pdf a texto'''
     with pdfplumber.open(file_path) as pdf:
@@ -40,7 +52,7 @@ def pdf_a_texto(file_path):
 texto = pdf_a_texto(file_path)
 
 
-@st.cache_resource # cache the function
+
 class DatosGenerales:
     def __init__(self, texto):
         self.texto = texto
@@ -197,6 +209,7 @@ class DatosGenerales:
         return out
 
 # Example usage
+# @st.cache_resource # cache the function
 Usuario = DatosGenerales(texto)
 Usuario.nombrefcn()
 Usuario.nssfcn()
@@ -212,7 +225,7 @@ df = Usuario.tabla_datos()
 st.sidebar.dataframe(df, height=300)  # Adjust the height as needed
 
 # Tabla de Fechas Generales
-@st.cache_resource
+# @st.cache_resource
 class FechasGenerales:
     def __init__(self, texto, FechaEmisionReporte):
         self.texto = texto
@@ -361,7 +374,7 @@ st.write("La fecha de última baja es:", fechasUltimaBaja)
 def HistorialLaboralTabla(texto):
     # Define the search string
     BloqueInicio = 'Nombre del patrón'
-    BloqueFinal = '/* Valor del último salario base de cotización diario en pesos.'
+    BloqueFinal = '* Valor del último salario base de cotización diario en pesos.'
     # tieneVigencia = 0  # Placeholder; define as needed
     # FechasUltimaBaja = datetime(2023, 1, 1)  # Placeholder; replace with actual date if applicable
 
@@ -565,7 +578,11 @@ SemanasReconocidas = Usuario.semanas_totales
 SALARIO_PROMEDIO_DIARIO, TABLA_SALARIO_PROMEDIO = salario_promedio_fcn(SEMANAS_CONTAR, SemanasReconocidas, tabla_salarios)
 
 st.sidebar.markdown('## Salario Promedio Diario')
-st.sidebar.write(round(SALARIO_PROMEDIO_DIARIO, 2))
+st.sidebar.metric(label='Salario Promedio Diario',
+                  label_visibility='hidden',
+                  border = True,
+                  value=round(SALARIO_PROMEDIO_DIARIO, 2))
+# st.sidebar.write(round(SALARIO_PROMEDIO_DIARIO, 2))
 
 st.markdown('## Tabla de Salarios Promedio')
 st.write(TABLA_SALARIO_PROMEDIO)
