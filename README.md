@@ -1,0 +1,1 @@
+Proyecto de cálculo de pensión del IMSS para calcular y comparar las pensiones mensuales, incluye una página de una calculadora manual así como una de pagos en modalidad 40 y desglose de historial laboral partiendo de un archivo de Constancia de Semanas Cotizadas.
