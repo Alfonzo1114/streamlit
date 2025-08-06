@@ -485,7 +485,7 @@ st.markdown('## Tabla de Salarios')
 st.write(tabla_salarios)
 
 # Tabla de Salarios Promedio 250
-SEMANAS_CONTAR = st.sidebar.slider(label='Número de semanas a contar', min_value=0, max_value=Usuario.semanas_cotizadas, value=250)
+SEMANAS_CONTAR = st.sidebar.slider(label='Número de semanas a contar', min_value=0, max_value=250, value=250)
 title_str = '## Tabla de Salarios Promedio para el cálculo de las últimas ' + str(SEMANAS_CONTAR) + ' semanas'
 st.markdown(title_str)
 @st.cache_resource
@@ -575,14 +575,16 @@ def salario_promedio_fcn(semanas_contar, semanas_reconocidas, salario_promedio_2
     return salario_promedio_diario, tabla_salario_promedio
 
 SemanasReconocidas = Usuario.semanas_totales
-SALARIO_PROMEDIO_DIARIO, TABLA_SALARIO_PROMEDIO = salario_promedio_fcn(SEMANAS_CONTAR, SemanasReconocidas, tabla_salarios)
+
+SALARIO_PROMEDIO_DIARIO, TABLA_SALARIO_PROMEDIO = salario_promedio_fcn(semanas_contar=SEMANAS_CONTAR,
+                                                                       semanas_reconocidas=SemanasReconocidas,
+                                                                       salario_promedio_250=tabla_salarios)
 
 st.sidebar.markdown('## Salario Promedio Diario')
 st.sidebar.metric(label='Salario Promedio Diario',
                   label_visibility='hidden',
                   border = True,
                   value=round(SALARIO_PROMEDIO_DIARIO, 2))
-# st.sidebar.write(round(SALARIO_PROMEDIO_DIARIO, 2))
 
 st.markdown('## Tabla de Salarios Promedio')
 st.write(TABLA_SALARIO_PROMEDIO)

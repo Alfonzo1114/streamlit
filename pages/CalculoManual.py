@@ -215,7 +215,7 @@ class PensionManual:
 # Example Usage
 if calcular_pension:
     with st.spinner('Procesando...'):
-        time.sleep(3)
+        time.sleep(2)
     pension_manual = PensionManual(edad_pension=edad_pension,
                                    year=year, semanas_reconocidas=semanas_reconocidas,
                                    salario_promedio=salario_promedio,
