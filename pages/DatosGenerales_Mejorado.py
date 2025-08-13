@@ -60,10 +60,16 @@ st.markdown("""
             border-color: #4a5568;
             color: #ffffff;
         }
-        .stTabs [data-testid="stMarkdownContainer"] p {
+        /* Target only the tab headers */
+        .stTabs [role="tab"] [data-testid="stMarkdownContainer"] p {
             font-size: 1.1rem;
             font-weight: 600;
             color: #ffffff;
+        }
+        
+        /* Style for metric values */
+        [data-testid="stMetricValue"] > div {
+            font-size: 1.5rem;
         }
         .stExpander {
             background: #2d3748;
@@ -185,6 +191,7 @@ def pdf_a_texto(file_path):
 texto = pdf_a_texto(file_path)
 
 # DatosGenerales class (same as original, but with added docstrings)
+
 class DatosGenerales:
     def __init__(self, texto):
         self.texto = texto
@@ -289,15 +296,15 @@ class DatosGenerales:
         # Find the position of the string that ends with 'reporte' and select the next element that contains the date
         position_date_report = [i + 1 for i, s in enumerate(texto_array) if s.endswith('reporte')]
         date_str = texto_array[position_date_report[0]].strip().replace(' ', '')
-        
+
         # Convert to date object and then format in Spanish
         fecha_date = convertir_a_fecha(date_str)
         fecha_formatted = format_spanish_date(fecha_date)
-        
+
         # Store both the date object and formatted string
         self.fecha_emision_reporte_date = fecha_date
         self.fecha_emision_reporte = fecha_formatted
-        
+
         print(f"FECHA DE EMISIÓN DEL REPORTE: {fecha_formatted}")
         print(f"FECHA DE EMISIÓN DEL REPORTE (date object): {fecha_date}, type: {type(fecha_date)}")
 
@@ -350,6 +357,124 @@ with st.spinner('Procesando datos...'):
     Usuario = DatosGenerales(texto)
     df = Usuario.tabla_datos()
 
+class FechasGenerales:
+    def __init__(self, texto, FechaEmisionReporte):
+        self.texto = texto
+        self.FechaEmisionReporte = FechaEmisionReporte
+
+    def tabla_fechas_generales(self):
+        texto = self.texto
+        FechaEmisionReporte = self.FechaEmisionReporte
+        # Define the search string
+        bajas_string = 'Fecha de baja'
+        value_added = 12 # Assuming 12 characters for the date
+        # Find the indices of the search string
+        bajas = [m.start() for m in re.finditer(bajas_string, texto)]
+        # Get the index of the first occurrence
+        ultima_baja = bajas[0]
+        # Calculate the end index
+        ultima_final = ultima_baja + len(bajas_string) + value_added
+        # Extract the desired substring
+        sigue_cotizando = "vigente" in texto.lower()  #Check if sigue_cotizando is contained in the text
+        # Initialize an array to store dates
+        fecha_bajas = np.zeros(len(bajas), dtype=object)
+        fecha_bajas_date = np.zeros(len(bajas), dtype=object)
+
+        for idx, baja in enumerate(bajas):
+            if idx == 0:
+                if not sigue_cotizando:
+                    fechas_ultima_baja = convertir_a_fecha(texto[ultima_baja + len(bajas_string):ultima_final].strip())
+                    fecha_bajas[idx] = fechas_ultima_baja
+                    fecha_bajas_date[idx] = format_spanish_date(texto[ultima_baja + len(bajas_string):ultima_final].strip())
+                else:
+                    fecha_bajas[idx] = FechaEmisionReporte
+                    fecha_bajas_date[idx] = format_spanish_date(fecha_bajas[idx])
+                    fechas_ultima_baja = fecha_bajas[idx]
+
+                if not isinstance(fechas_ultima_baja, date):
+                    fechas_ultima_baja = fechas_ultima_baja.date()
+            else:
+                start_idx = baja + len(bajas_string)
+                end_idx = start_idx + value_added  # Assuming 12 characters for the date
+                fecha_bajas[idx] = texto[start_idx:end_idx].strip()
+                fecha_bajas_date[idx] = format_spanish_date(fecha_bajas[idx])
+                fecha_bajas[idx] = convertir_a_fecha(fecha_bajas[idx])
+
+        altas_string = 'Fecha de alta'
+        altas = [m.start() for m in re.finditer(altas_string, texto)]
+
+        ultima_alta = altas[0]
+        ultima_alta_final = ultima_alta + len(altas_string) + value_added
+
+        fechas_ultima_alta = texto[ultima_alta + len(altas_string):ultima_alta_final].strip()
+
+        fecha_altas = np.zeros(len(altas), dtype=object)
+        fecha_altas_date = np.zeros(len(altas), dtype=object)
+        dias_transcurridos_cotizados = np.zeros(len(altas), dtype=object)
+        semanas_transcurridas_cotizadas = np.zeros(len(altas), dtype=object)
+
+        for idx, alta in enumerate(altas):
+            start_idx = alta + len(altas_string)
+            end_idx = start_idx + value_added
+            fecha_altas[idx] = convertir_a_fecha(texto[start_idx:end_idx].strip())
+            fecha_altas_date[idx] = format_spanish_date(texto[start_idx:end_idx].strip())
+
+
+            dias_transcurridos_cotizados[idx] = (fecha_bajas[idx] - fecha_altas[idx]).days
+            semanas_transcurridas_cotizadas[idx] = dias_transcurridos_cotizados[idx] // 7
+
+            inicio_patron_str = 'Nombre del patrón'
+            final_patron_str = 'Registro Patronal'
+            final_patron_str_entidad = 'Entidad federativa'
+            inicio_patron = [m.start() for m in re.finditer(inicio_patron_str, texto)]
+            final_patron = [m.start() for m in re.finditer(final_patron_str, texto)]
+
+            if len(final_patron) != len(inicio_patron):
+                missing_registro_patronal = [m.start() for m in re.finditer(final_patron_str_entidad, texto)]
+                final_patron.append(missing_registro_patronal[-1])
+
+            patrones = []
+            # using list comprehension
+            patrones = [texto[inicio + len(inicio_patron_str):final_patron[idx] - 1].strip()
+                        for idx, inicio in enumerate(inicio_patron)]
+
+            inicio_ef_str = 'Entidad federativa'
+            final_ef_str = 'Fecha de alta'
+            inicio_ef = [m.start() for m in re.finditer(inicio_ef_str, texto)]
+            final_ef = [m.start() for m in re.finditer(final_ef_str, texto)]
+
+            entidad_federativa = []
+
+            for idx, inicio in enumerate(inicio_ef):
+                start_idx = inicio + len(inicio_ef_str)
+                end_idx = final_ef[idx] - 1
+                entidad_federativa.append(texto[start_idx:end_idx].strip())
+
+            # Alternatively, using list comprehension
+            entidad_federativa = [texto[inicio + len(inicio_ef_str):final_ef[idx] - 1].strip()
+                                for idx, inicio in enumerate(inicio_ef)]
+
+            FechasGenerales_num = pd.DataFrame({
+            'Fecha de alta': fecha_altas,
+            'Fecha de baja': fecha_bajas,
+            'Dias transcurridos cotizados': dias_transcurridos_cotizados,
+            'Semanas transcurridas cotizadas': semanas_transcurridas_cotizadas,
+            'Patrones': patrones,
+            'Entidad federativa': entidad_federativa
+        })
+            FechasGenerales_date = pd.DataFrame({
+            'Fecha de alta': fecha_altas_date,
+            'Fecha de baja': fecha_bajas_date,
+            'Dias transcurridos cotizados': dias_transcurridos_cotizados,
+            'Semanas transcurridas cotizadas': semanas_transcurridas_cotizadas,
+            'Patrones': patrones,
+            'Entidad federativa': entidad_federativa
+        })
+        return FechasGenerales_num, FechasGenerales_date, sigue_cotizando, fechas_ultima_baja
+
+
+fechas_generales = FechasGenerales(texto=texto, FechaEmisionReporte=Usuario.fecha_emision_reporte)
+fechasGeneralesNumerico, fechasGeneralesDate, sigueCotizando, fechasUltimaBaja = fechas_generales.tabla_fechas_generales()
 # Create tabs for better organization
 tab1, tab2, tab3 = st.tabs(["📋 Datos Personales", "📅 Historial Laboral", "💰 Cálculos"])
 
@@ -365,12 +490,12 @@ with tab1:
             st.metric("Nombre", Usuario.Nombre)
             st.metric("CURP", Usuario.curp)
             st.metric("Fecha de Nacimiento", Usuario.fecha_nacimiento)
-            st.metric("Año de Inscripción IMSS", Usuario.AnoInicio)
+            st.metric("Año de Inscripción al IMSS", Usuario.AnoInicio)
 
         with col2:
             st.metric("NSS", Usuario.nss)
             st.metric("Régimen", Usuario.Regimen)
-            st.metric("Fecha de Emision del Reporte", Usuario.fecha_emision_reporte)
+            st.metric("Fecha de Emision del Reporte", Usuario.fecha_emision_reporte, )
             # Add empty metric to balance the layout if needed
             st.metric(" ", " ")
     
@@ -394,18 +519,28 @@ with tab2:
     # For example:
     # HistoriaLaboralTable_str, HistoriaLaboralTable_num = HistorialLaboralTabla(texto)
     # HistoriaLaboralTable = HistorialLaboralDesglosada_fcn(texto, tieneVigencia, fechasUltimaBaja)
-    
+
     with st.expander("📋 Ver Historial Laboral Detallado", expanded=False):
         st.write("Tabla detallada del historial laboral iría aquí")
-        # st.dataframe(HistoriaLaboralTable)
+        st.dataframe(fechasGeneralesDate)
 
 # Tab 3: Cálculos
 with tab3:
     st.subheader("Cálculos de Pensión")
     
     with st.expander("📈 Salario Promedio", expanded=True):
-        st.write("Cálculos de salario promedio irían aquí")
-        # tabla_salarios = salario_promedio_250tabla(HistoriaLaboralTable)
+        # Calculate the maximum value for the slider (minimum between 250 and semanas_cotizadas)
+        max_semanas = min(250, int(Usuario.semanas_cotizadas))
+        semanas_seleccionadas = st.slider(
+            "Número de semanas a considerar:",
+            min_value=1,
+            max_value=max_semanas,
+            value=max_semanas,  # Default to the maximum value
+            step=1,
+            help=f"Selecciona el número de semanas (máximo {max_semanas})"
+        )
+        st.write(f"Cálculos de salario promedio para {semanas_seleccionadas} semanas")
+        # tabla_salarios = salario_promedio_250tabla(HistoriaLaboralTable, num_semanas=semanas_seleccionadas)
         # st.dataframe(tabla_salarios)
     
     with st.expander("📅 Fechas Clave", expanded=True):
