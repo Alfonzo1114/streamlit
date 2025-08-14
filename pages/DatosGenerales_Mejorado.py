@@ -10,23 +10,13 @@ import numpy as np
 from dateutil.relativedelta import relativedelta
 from streamlit_extras.stylable_container import stylable_container
 
-def format_spanish_date(date_obj):
-    # Define Spanish month and day names
-    days = ["Lunes", "Martes", "Miércoles", "Jueves",
-            "Viernes", "Sábado", "Domingo"]
-    months = ["enero", "febrero", "marzo", "abril", "mayo", "junio", 
-              "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+import sys
+import os
 
-    # Get day of week (0=Monday, 6=Sunday)
-    day_of_week = date_obj.weekday()
+# Add the project root to the Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-    # Format the date in Spanish
-    return f"{days[day_of_week]}, {date_obj.day} de {months[date_obj.month - 1]} de {date_obj.year}"
-
-def convertir_a_fecha(fecha_str):
-    # All the dates from the PDF are in the format "DD/MM/YYYY"
-    fecha = datetime.strptime(fecha_str, '%d/%m/%Y').date()
-    return fecha
+from utils import format_spanish_date, convertir_a_fecha, convert_double_currency
 
 # Set page config
 st.set_page_config(
@@ -242,14 +232,14 @@ class DatosGenerales:
         YEAR_BIRTH = "19" + self.curp[4:6]
         MONTH_BIRTH = self.curp[6:8]
         DAY_BIRTH = self.curp[8:10]
-        FECHA_STR = f"{DAY_BIRTH}/{MONTH_BIRTH}/{YEAR_BIRTH}"
+        FECHA_NACIMIENTO = DAY_BIRTH + '/' + MONTH_BIRTH + '/' + YEAR_BIRTH
         # Convert string to datetime object
-        fecha_date = convertir_a_fecha(FECHA_STR)
-        # Format the date in Spanish
-        fecha_formatted = format_spanish_date(fecha_date)
-        print(f"FECHA DE NACIMIENTO: {fecha_formatted}")
-        self.fecha_nacimiento = fecha_formatted
-        self.fecha_nacimiento_date = fecha_date
+        FECHA_NACIMIENTO_date = convertir_a_fecha(FECHA_NACIMIENTO)
+        # Convert string to spanish date string
+        FECHA_NACIMIENTO = format_spanish_date(FECHA_NACIMIENTO)
+        print(f"FECHA DE NACIMIENTO: {FECHA_NACIMIENTO}")
+        self.fecha_nacimiento = FECHA_NACIMIENTO
+        self.fecha_nacimiento_date = FECHA_NACIMIENTO_date
 
     def ano_inscripcionIMSS_fcn(self):
         TerminacionYear = self.nss[2:4]
@@ -292,21 +282,14 @@ class DatosGenerales:
 
     def fecha_emision_reporte_fcn(self):
         texto_array = self.texto.split('\n')
-
         # Find the position of the string that ends with 'reporte' and select the next element that contains the date
         position_date_report = [i + 1 for i, s in enumerate(texto_array) if s.endswith('reporte')]
-        date_str = texto_array[position_date_report[0]].strip().replace(' ', '')
+        out = texto_array[position_date_report[0]]
+        out = out.replace(' ', '')
+        self.fecha_emision_reporte_date = convertir_a_fecha(out)
+        print(f"FECHA DE EMISIÓN DEL REPORTE: {out}, type: {type(out)}")
 
-        # Convert to date object and then format in Spanish
-        fecha_date = convertir_a_fecha(date_str)
-        fecha_formatted = format_spanish_date(fecha_date)
-
-        # Store both the date object and formatted string
-        self.fecha_emision_reporte_date = fecha_date
-        self.fecha_emision_reporte = fecha_formatted
-
-        print(f"FECHA DE EMISIÓN DEL REPORTE: {fecha_formatted}")
-        print(f"FECHA DE EMISIÓN DEL REPORTE (date object): {fecha_date}, type: {type(fecha_date)}")
+        self.fecha_emision_reporte = format_spanish_date(out)
 
     def tabla_datos(self):
         self.nombrefcn()
@@ -385,7 +368,8 @@ class FechasGenerales:
                 if not sigue_cotizando:
                     fechas_ultima_baja = convertir_a_fecha(texto[ultima_baja + len(bajas_string):ultima_final].strip())
                     fecha_bajas[idx] = fechas_ultima_baja
-                    fecha_bajas_date[idx] = format_spanish_date(texto[ultima_baja + len(bajas_string):ultima_final].strip())
+                    fecha_bajas_date[idx] = format_spanish_date(
+                        texto[ultima_baja + len(bajas_string):ultima_final].strip())
                 else:
                     fecha_bajas[idx] = FechaEmisionReporte
                     fecha_bajas_date[idx] = format_spanish_date(fecha_bajas[idx])
@@ -418,7 +402,6 @@ class FechasGenerales:
             end_idx = start_idx + value_added
             fecha_altas[idx] = convertir_a_fecha(texto[start_idx:end_idx].strip())
             fecha_altas_date[idx] = format_spanish_date(texto[start_idx:end_idx].strip())
-
 
             dias_transcurridos_cotizados[idx] = (fecha_bajas[idx] - fecha_altas[idx]).days
             semanas_transcurridas_cotizadas[idx] = dias_transcurridos_cotizados[idx] // 7
@@ -472,9 +455,107 @@ class FechasGenerales:
         })
         return FechasGenerales_num, FechasGenerales_date, sigue_cotizando, fechas_ultima_baja
 
+def HistorialLaboralTabla_fcn(texto):
+    # Define the search string
+    BloqueInicio = 'Nombre del patrón'
+    BloqueFinal = '* Valor del último salario base de cotización diario en pesos.'
+
+    # Find occurrences of the start and end blocks
+    Inicio = [m.start() for m in re.finditer(re.escape(BloqueInicio), texto)]
+    Final = [m.start() for m in re.finditer(re.escape(BloqueFinal), texto)]
+    HistoriaLaboral = []
+
+    # Extract information between blocks
+    for start, end in zip(Inicio, Final):
+        substring = texto[start + len(BloqueInicio):end].strip()
+        output = [line.strip() for line in substring.splitlines() if len(line.strip()) > 1]
+        HistoriaLaboral.append(output)
+
+    # Initialize an empty DataFrame for the final table
+    target_strings = {'ALTA', 'REINGRESO', 'MODIFICACION', 'BAJA'}
+    Movimiento = list()
+    FechaMovimiento = list()
+    Sueldo = list()
+    Empleador = list()
+    EntidadFederativa = list()
+    for entry in HistoriaLaboral:
+        for line in entry:
+            # if any(string in line for string in target_strings):
+            if any(string in line.split()[0] for string in target_strings):
+                Empleador.append(entry[0])
+                EntidadFederativa.append(entry[2].split()[2:])
+                array = line.split()
+                if array[0] == 'MODIFICACION':
+                    Movimiento.append('MODIFICACION DE SALARIO')
+                else:
+                    Movimiento.append(array[0])
+                FechaMovimiento.append(array[-3])
+                Sueldo.append(array[-1])
+
+    # Convert 'Sueldo' elements to float before formatting
+    Sueldo_str = [convert_double_currency(float(valor)) for valor in Sueldo]
+    HistoriaLaboralTable_str = pd.DataFrame({
+        'Movimiento': Movimiento,
+        # We will apply the format_spanish_date function to the list FechaMovimiento
+        'Fecha de Movimiento': FechaMovimiento,
+        'Sueldo': Sueldo_str,
+        'Empleador': Empleador,
+        'Entidad Federativa': EntidadFederativa
+    })
+
+    HistoriaLaboralTable_str['Entidad Federativa'] = HistoriaLaboralTable_str['Entidad Federativa'].apply(lambda x: " ".join(x))
+
+    HistoriaLaboralTable_num = HistoriaLaboralTable_str.copy()
+
+    HistoriaLaboralTable_str['Fecha de Movimiento'] = [format_spanish_date(date) for date in FechaMovimiento]
+    HistoriaLaboralTable_num['Sueldo'] = Sueldo
+    return HistoriaLaboralTable_str, HistoriaLaboralTable_num
+
+HistoriaLaboralTable_str, HistorialLaboralTable_num = HistorialLaboralTabla_fcn(texto)
+
+def HistorialLaboralDesglosada_fcn(HistoriaLaboralTable, texto, sigueCotizando, FechasUltimaBaja):
+    Bajas = np.where(HistoriaLaboralTable['Movimiento'] == 'BAJA')[0]
+    FechaFinal = HistoriaLaboralTable['Fecha de Movimiento'].values
+    # We will apply the convertir_a_fecha function to the list FechaFinal
+    FechaFinal = [convertir_a_fecha(fecha) for fecha in FechaFinal]
+
+    for idx in range(len(HistoriaLaboralTable)):
+        # print(FechaFinal[idx], type(FechaFinal[idx]))
+        if idx not in Bajas:
+            FechaFinal[idx] =  FechaFinal[idx] - timedelta(days=1)
+
+    FechaFinal = np.roll(FechaFinal, 1)
+    if sigueCotizando:
+        FechaFinal[0] = FechasUltimaBaja
+#
+    HistoriaLaboralDesglosada = HistoriaLaboralTable.copy()
+    HistoriaLaboralDesglosada['Fecha Final'] = FechaFinal
+    HistoriaLaboralDesglosada.drop(Bajas, inplace=True)
+    HistoriaLaboralDesglosada = HistoriaLaboralDesglosada.rename(columns={"Fecha de Movimiento": "Fecha Inicial"})
+
+    HistoriaLaboralDesglosada["Fecha Inicial"] = [convertir_a_fecha(fecha) for fecha in HistoriaLaboralDesglosada["Fecha Inicial"]]
+#
+    HistoriaLaboralDesglosada["Fecha Inicial"] = HistoriaLaboralDesglosada["Fecha Inicial"] + timedelta(days = 1)
+
+#     # Move the column "FechaFinal" to be after "FechaInicial"
+    cols = list(HistoriaLaboralDesglosada.columns)
+    cols.insert(cols.index("Fecha Inicial") + 1, cols.pop(cols.index("Fecha Final")))
+    HistoriaLaboralDesglosada = HistoriaLaboralDesglosada[cols]
+
+    HistoriaLaboralDesglosada_str = HistoriaLaboralDesglosada.copy()
+    HistoriaLaboralDesglosada_str['Fecha Inicial'] = [format_spanish_date(str(date)) for date in
+                                                      HistoriaLaboralDesglosada_str['Fecha Inicial']]
+    HistoriaLaboralDesglosada_str['Fecha Final'] = [format_spanish_date(str(date)) for date in
+                                                    HistoriaLaboralDesglosada_str['Fecha Final']]
+    HistoriaLaboralDesglosada_str['Sueldo'] = [convert_double_currency(float(valor)) for valor in
+                                               HistoriaLaboralDesglosada_str['Sueldo']]
+
+    return HistoriaLaboralDesglosada, HistoriaLaboralDesglosada_str
 
 fechas_generales = FechasGenerales(texto=texto, FechaEmisionReporte=Usuario.fecha_emision_reporte)
 fechasGeneralesNumerico, fechasGeneralesDate, sigueCotizando, fechasUltimaBaja = fechas_generales.tabla_fechas_generales()
+
+HistoriaLaboralTable, HistorialLaboralTable_str = HistorialLaboralDesglosada_fcn(HistorialLaboralTable_num, texto, sigueCotizando, fechasUltimaBaja)
 # Create tabs for better organization
 tab1, tab2, tab3 = st.tabs(["📋 Datos Personales", "📅 Historial Laboral", "💰 Cálculos"])
 
@@ -491,6 +572,11 @@ with tab1:
             st.metric("CURP", Usuario.curp)
             st.metric("Fecha de Nacimiento", Usuario.fecha_nacimiento)
             st.metric("Año de Inscripción al IMSS", Usuario.AnoInicio)
+            if sigueCotizando:
+                st.metric("Sigue Cotizando", "Si")
+            else:
+                st.metric("Sigue Cotizando", "No")
+
 
         with col2:
             st.metric("NSS", Usuario.nss)
@@ -514,15 +600,29 @@ with tab1:
 # Tab 2: Historial Laboral
 with tab2:
     st.subheader("Historial Laboral")
-    
+    # HistoriaLaboralTable_str
     # Add your existing historial laboral code here
-    # For example:
-    # HistoriaLaboralTable_str, HistoriaLaboralTable_num = HistorialLaboralTabla(texto)
-    # HistoriaLaboralTable = HistorialLaboralDesglosada_fcn(texto, tieneVigencia, fechasUltimaBaja)
-
     with st.expander("📋 Ver Historial Laboral Detallado", expanded=False):
-        st.write("Tabla detallada del historial laboral iría aquí")
-        st.dataframe(fechasGeneralesDate)
+        if fechasGeneralesDate is not None:
+            st.write("Tabla detallada del historial laboral")
+            st.dataframe(fechasGeneralesDate)
+        else:
+            st.write("No se encontraron datos de historial laboral.")
+
+    with st.expander("📋 Ver Historial de movimientos", expanded=False):
+        if fechasGeneralesDate is not None:
+            st.write("Tabla detallada de Movimientos")
+            st.dataframe(HistoriaLaboralTable_str)
+        else:
+            st.write("No se encontraron datos de historial laboral.")
+
+    with st.expander("📋 Ver Historial Laboral Desglosado", expanded=False):
+        if HistoriaLaboralTable is not None:
+            st.write("Tabla detallada del historial laboral")
+            st.dataframe(HistoriaLaboralTable_str)
+        else:
+            st.write("No se encontraron datos de historial laboral.")
+
 
 # Tab 3: Cálculos
 with tab3:
