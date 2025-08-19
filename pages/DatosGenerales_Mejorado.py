@@ -293,3 +293,6 @@ st.caption("© 2025 Sistema de Análisis de Pensiones - Carlos Alfonzo")
 if st.button("📥 Exportar Datos", use_container_width=True):
     # Add export functionality here
     st.success("¡Datos exportados exitosamente!")
+
+if "dynamic_vars" not in st.session_state:
+    st.session_state.dynamic_vars = {}

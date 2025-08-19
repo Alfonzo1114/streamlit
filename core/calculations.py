@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from dateutil.relativedelta import relativedelta
 from utils import format_spanish_date, convert_double_currency
+import plotly.graph_objects as go
 
 def salario_promedio_fcn(semanas_contar, semanas_reconocidas, tabla_salarios):
     if semanas_contar == 0:
@@ -457,3 +458,79 @@ def crecimiento_anual_pension_fcn(ano_pension, pension_final, year_max=2040):
 
 
     return tabla_crecimiento_num, tabla_crecimiento_str
+
+def pivot_pagos40(df):
+    pivot_table = pd.pivot_table(data=df,
+                index = 'Mes de Pago',
+                values = 'Pago Mensual',
+                columns = 'Año de Pago',
+                aggfunc = 'sum',
+                fill_value=0,
+                margins=True,
+                margins_name='Total')
+    # Rename margin row and column
+    pivot_table.rename(index={pivot_table.index[-1]: 'Total por mes'},
+                    columns={pivot_table.columns[-1]: 'Total por año'},
+                    inplace=True)
+
+    # Define the desired order
+    order = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre', 'Total por mes']
+
+    # Reindex the pivot table
+    ordered_pivot_table = pivot_table.reindex(index=order)
+
+    # Convert float values to currency strings
+    ordered_pivot_table_string = ordered_pivot_table.map("${:,.2f}".format)
+
+    total_payment = ordered_pivot_table['Total por año'].iloc[-1]
+    total_payment = convert_double_currency(total_payment)
+    return ordered_pivot_table, ordered_pivot_table_string, total_payment
+
+def heatmap_pagos40(pivot_table):
+    # df should have 'Mes de Pago' as index, 'Año de Pago' as columns, and 'Pago Mensual' as values
+    # Melt the DataFrame to long format
+    df = pivot_table.copy()
+    df.drop('Total por mes', axis=0, inplace=True)
+    df.drop('Total por año', axis=1, inplace=True)
+    df_melted = df.reset_index().melt(id_vars=['Mes de Pago'], var_name='Año de Pago', value_name='Pago Mensual')
+    # Create the heatmap
+    fig = go.Figure(data=go.Heatmap(
+        x=df_melted['Año de Pago'],
+        y=df_melted['Mes de Pago'],
+        z=df_melted['Pago Mensual'],
+        colorscale='ylorbr',
+        colorbar=dict(
+            tickformat="$,.0f"
+        ),
+        text=df_melted.apply(lambda row: f'Mes: {row["Mes de Pago"]}<br>Año: {row["Año de Pago"]}<br>Pago Mensual: ${row["Pago Mensual"]:.2f}', axis=1),
+
+        hoverinfo='text',
+    ))
+
+    fig.update_layout(
+        title='Pagos Mensuales',
+        xaxis=dict(
+            nticks=36,
+            title='Año de Pago',
+            tickmode='linear',
+            tick0=0,
+            dtick=1,
+            tickformat='d'
+        ),
+        xaxis_nticks=36,
+        yaxis_nticks=12,
+        xaxis_title='Año de Pago',
+        yaxis_title='Mes de Pago',
+    )
+
+    # Add text annotations
+    for i in range(len(df_melted)):
+        fig.add_annotation(
+            x=df_melted['Año de Pago'][i],
+            y=df_melted['Mes de Pago'][i],
+            text=f"${df_melted['Pago Mensual'][i]:,.0f}",
+            showarrow=False,
+            font=dict(size=16, color='white')
+        )
+
+    return fig
