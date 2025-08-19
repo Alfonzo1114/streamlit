@@ -426,3 +426,34 @@ def tabla_salarios_modificada(tabla_salarios_original,fecha_inicio, fecha_final,
     nueva_tabla_str['Fecha Final'] = [format_spanish_date(str(date), date_type="format_string") for date in nueva_tabla['Fecha Final']]
     nueva_tabla_str['Sueldo'] = [convert_double_currency(float(valor)) for valor in nueva_tabla['Sueldo']]
     return nueva_tabla, nueva_tabla_str
+
+def crecimiento_anual_pension_fcn(ano_pension, pension_final, year_max=2040):
+    tabla = 'TABLAS/TABLA_INFLACION.txt'
+    tabla = pd.read_csv(tabla, sep = '\t')
+    year_max = min(2040, year_max)
+    num_years = year_max - ano_pension
+    year_array = np.arange(0, num_years + 1) + ano_pension
+    idx_inicial = tabla.index[tabla['AÑO'] == ano_pension].tolist()[0]
+    idx_final = tabla.index[tabla['AÑO'] == ano_pension + num_years].tolist()[0]
+
+    inflacion_anual_numerico = tabla.iloc[idx_inicial:idx_final, 1]
+    inflacion_anual_numerico = inflacion_anual_numerico.map(lambda x: float(x.replace('%','')))
+    inflacion_anual_numerico = pd.concat([pd.Series([0]), inflacion_anual_numerico])
+
+    inflacion_anual_acumulada = np.cumsum(inflacion_anual_numerico)
+    pension_mensual = (inflacion_anual_acumulada/1e2 + 1) * pension_final
+
+    tabla_crecimiento_num = pd.DataFrame({
+        'Año': year_array.astype(int),
+        'Inflación Anual': inflacion_anual_numerico,
+        'Inflación Anual Acumulada' : inflacion_anual_acumulada,
+        'Pensión recibida mensual' : pension_mensual
+    }).round(2)
+
+    tabla_crecimiento_str = tabla_crecimiento_num.copy()
+    tabla_crecimiento_str['Inflación Anual'] = (tabla_crecimiento_str['Inflación Anual']).map("{:.3}%".format)
+    tabla_crecimiento_str['Inflación Anual Acumulada'] = (tabla_crecimiento_str['Inflación Anual Acumulada']).map("{:.3}%".format)
+    tabla_crecimiento_str['Pensión recibida mensual'] = [convert_double_currency(val) for val in tabla_crecimiento_str['Pensión recibida mensual']]
+
+
+    return tabla_crecimiento_num, tabla_crecimiento_str
