@@ -2,7 +2,7 @@ import streamlit as st
 from docxtpl import DocxTemplate
 from io import BytesIO
 
-st.title("Word Template Filler")
+st.title("Generación de Reporte de Pensión")
 
 # User inputs
 name = st.text_input("Name", "Carlos")
