@@ -11,7 +11,7 @@ st.sidebar.title("Parametros Generales del Usuario")
 with st.sidebar:
     start_date = st.date_input("Incio de pago env Modalidad 40")
 
-    duration = st.number_input("Duración de la Modalidad 40", min_value=0, value=60)
+    duration = st.number_input("Duración de la Modalidad 40", min_value=0, value=25)
     salario_mod40 = st.number_input("Salario Mensual en Modalidad 40", min_value=50, value=50)
 
     # We will add a button to start a new calculation

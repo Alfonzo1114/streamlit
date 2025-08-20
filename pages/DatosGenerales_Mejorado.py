@@ -17,8 +17,11 @@ from core.data_processing import (
     FechasGenerales,
     HistorialLaboralTabla_fcn,
     HistorialLaboralDesglosada_fcn,
+    SessionVars
 )
+session = SessionVars()
 from core.calculations import salario_promedio_fcn, salario_promedio_250tabla
+
 
 # Set page config
 st.set_page_config(
@@ -207,6 +210,7 @@ with tab1:
         col1, col2 = st.columns([3, 2])
         with col1:
             st.metric("Nombre", Usuario.Nombre)
+            session.set("Nombre", Usuario.Nombre)
             st.metric("CURP", Usuario.curp)
             st.metric("Fecha de Nacimiento", Usuario.fecha_nacimiento_string)
             st.metric("Año de Inscripción al IMSS", Usuario.AnoInicio)
