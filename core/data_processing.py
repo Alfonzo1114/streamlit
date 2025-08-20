@@ -1,4 +1,5 @@
 import re
+import streamlit as st
 from datetime import date, timedelta
 
 import numpy as np
@@ -6,7 +7,6 @@ import pandas as pd
 import pdfplumber
 
 from utils import format_spanish_date, convert_double_currency
-
 
 def pdf_a_texto(file_path):
     '''Convert PDF to text'''
@@ -356,3 +356,30 @@ def HistorialLaboralDesglosada_fcn(HistoriaLaboralTable, sigueCotizando, FechasU
     HistoriaLaboralDesglosada_str['Sueldo'] = [convert_double_currency(float(valor)) for valor in HistoriaLaboralDesglosada['Sueldo']]
 
     return HistoriaLaboralDesglosada, HistoriaLaboralDesglosada_str
+
+class SessionVars:
+    """A class to manage session variables in Streamlit."""
+    def __init__(self):
+        """Initialize the session variables dictionary."""
+        if "session_vars" not in st.session_state:
+            st.session_state.session_vars = {}
+
+    def set(self, key, value):
+        """Set a session variable."""
+        st.session_state.session_vars[key] = value
+
+    def get(self, key, default=None):
+        """Get a session variable."""
+        return st.session_state.session_vars.get(key, default)
+
+    def get_all(self):
+        """Get all session variables."""
+        return st.session_state.session_vars
+
+    def clear(self):
+        """Clear all session variables."""
+        st.session_state.session_vars = {}
+
+    def update(self, new_vars):
+        """Update multiple session variables at once."""
+        st.session_state.session_vars.update(new_vars)
