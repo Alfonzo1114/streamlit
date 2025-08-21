@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import timedelta, datetime, date
 import numpy as np
 import pandas as pd
 from dateutil.relativedelta import relativedelta
@@ -397,7 +397,7 @@ class PensionManual:
             'Incremento %': [self.incremento_perc_string],
             'Incremento Dinero': [convert_double_currency(self.incremento_dinero)],
             'Cuantia Basica Anual': [convert_double_currency(self.cuantia_basica_anual)],
-            'Cuantia Vejez': [self.cuantia_vejez],
+            'Cuantia Vejez': [convert_double_currency(self.cuantia_vejez)],
             'Pension Cesantia Edad Avanzada': [convert_double_currency(self.pension_cesantia_edad_avanzada)],
             'Importe Asignaciones Familiares': [convert_double_currency(self.importe_asignaciones_familiares)],
             'Importe Anual Cesantia': [convert_double_currency(self.importe_anual_cesantia)],
@@ -534,3 +534,83 @@ def heatmap_pagos40(pivot_table):
         )
 
     return fig
+
+def tabla_aguinaldo(fecha_inicio, pension_final, year_max, perc_asignaciones_familiares, year_cambio_asignaciones=None, perc_restar=None):
+    # Read inflation table
+    try:
+        tabla = pd.read_csv('TABLAS/TABLA_INFLACION.txt', sep='\t')
+    except FileNotFoundError:
+        raise FileNotFoundError("No se encontró el archivo de tabla de inflación en 'TABLAS/TABLA_INFLACION.txt'")
+
+    # Convert fecha_inicio to datetime.date if it's datetime.datetime
+    if isinstance(fecha_inicio, datetime):
+        fecha_inicio = fecha_inicio.date()
+
+    # Validate inputs
+    if year_cambio_asignaciones is not None and perc_restar is None:
+        raise ValueError("Se debe proporcionar perc_restar cuando se especifica year_cambio_asignaciones")
+
+    # Initialize variables
+    year_pension = fecha_inicio.year
+    num_years = year_max - year_pension
+
+    # Validate year_max
+    if num_years < 0:
+        raise ValueError("El año máximo debe ser mayor o igual al año de inicio")
+
+    # Get inflation data
+    try:
+        idx_inicial = tabla.index[tabla['AÑO'] == year_pension].tolist()[0]
+        idx_final = tabla.index[tabla['AÑO'] == year_pension + num_years].tolist()[0]
+    except IndexError:
+        raise ValueError("Año fuera de rango en la tabla de inflación")
+
+    # Process inflation data
+    inflacion_anual_numerico = tabla.iloc[idx_inicial:idx_final + 1, 1].str.rstrip('%').astype('float')
+    inflacion_anual_acumulada = np.cumsum(inflacion_anual_numerico)
+    inflacion_anual_acumulada = np.insert(inflacion_anual_acumulada, 0, 0)
+
+    # Initialize arrays
+    year_array = np.arange(year_pension, year_max + 1)
+    asignaciones_array = np.full(len(year_array), perc_asignaciones_familiares)
+    aguinaldo_array = []
+
+    # Calculate first year's aguinaldo
+    pension_year_final = date(year_pension, 12, 31)
+
+    if fecha_inicio.month >= 11:
+        days_rd = 0
+    else:
+        if fecha_inicio.day > 1:
+            fecha_inicio = fecha_inicio.replace(day=1)
+            fecha_inicio = fecha_inicio + relativedelta(months=1)
+
+        days_rd = (pension_year_final - fecha_inicio).days + 1  # +1 to include both start and end dates
+    fraction_aguinaldo = days_rd / 365
+    aguinaldo_array.append(fraction_aguinaldo * pension_final/(1 + perc_asignaciones_familiares))
+
+    # Calculate aguinaldos for subsequent years
+    for idx in range(1, len(year_array)):
+        # Check if we need to adjust family assignments
+        if (year_cambio_asignaciones is not None and
+            year_array[idx] >= year_cambio_asignaciones):
+            asignaciones_array[idx] = max(perc_asignaciones_familiares - perc_restar, 0.15)
+
+        # Calculate aguinaldo for the year
+        aguinaldo = (pension_final/(1 + asignaciones_array[idx]) * (1 + inflacion_anual_acumulada[idx] / 100))
+        aguinaldo_array.append(aguinaldo)
+
+    # Create dataframes
+    tabla_aguinaldo_num = pd.DataFrame({
+        'Año': year_array,
+        'Aguinaldo': aguinaldo_array,
+        '% de Asignaciones Familiares': asignaciones_array
+    }).round(2)
+
+    tabla_aguinaldo_str = pd.DataFrame({
+        'Año': year_array,
+        'Aguinaldo': [f"${x:,.2f}" for x in aguinaldo_array],
+        '% de Asignaciones Familiares': [f"{x*100:.0f}%" for x in asignaciones_array]
+    })
+
+    return tabla_aguinaldo_num, tabla_aguinaldo_str
