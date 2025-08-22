@@ -190,8 +190,9 @@ HistoriaLaboralTable_str, HistorialLaboralTable_num = HistorialLaboralTabla_fcn(
 HistoriaLaboralTable, HistorialLaboralTable_str_desglosada = HistorialLaboralDesglosada_fcn(HistoriaLaboralTable=HistorialLaboralTable_num,
                                                                                             sigueCotizando=sigueCotizando,
                                                                                             FechasUltimaBaja=fechasUltimaBaja)
-
+session.set("Historia Laboral Table", HistoriaLaboralTable)
 tabla_salarios_date, tabla_salarios_str = salario_promedio_250tabla(HistoriaLaboralTable)
+session.set("Tabla Salarios", tabla_salarios_date)
 
 SEMANAS_CONTAR = min(250, int(Usuario.semanas_cotizadas))
 SALARIO_PROMEDIO_DIARIO, tabla_salario_promedio_num, tabla_salario_promedio_str = salario_promedio_fcn(semanas_contar=SEMANAS_CONTAR,
@@ -239,6 +240,7 @@ with tab1:
             st.metric("Reintegradas", Usuario.semanas_reintegradas)
         with col4:
             st.metric("Totales", Usuario.semanas_totales)
+            session.set("Semanas Totales", Usuario.semanas_totales)
 
 # Tab 2: Historial Laboral
 with tab2:

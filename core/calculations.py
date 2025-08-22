@@ -118,17 +118,133 @@ def salario_promedio_250tabla(HistoriaLaboralDesglosada):
 
     return salario_promedio_250, salario_promedio_250_str
 
-def pagos40(salario, start_date, duration):
+# def pagos40(salario, start_date, duration):
+#     tabla_uma = pd.read_csv('TABLAS/TABLA_UMA.txt', sep='\t')
+#     TABLA_AUMENTO_PAGOMOD40 = pd.read_csv('TABLAS/TABLA_AUMENTOPAGO40.txt', sep='\t')
+#     TABLA_SALARIOSMINIMOS = pd.read_csv('TABLAS/TABLA_SALARIOSMINIMOS.txt', sep='\t')
+#     CUOTA_OBRERA = 6.925 / 1e2;
+#
+#     salario_array = np.full(duration + 1, salario)  # Creates an array with the same value
+#     second_date = start_date + relativedelta(months=1)
+#     second_date = second_date.replace(day=1)
+#
+#     monthly_series = pd.date_range(start=second_date, periods=duration, freq='MS')  # MS: Month Start
+#     time_series_df = pd.concat([pd.Series(start_date), pd.Series(monthly_series)])
+#     time_series_df = pd.to_datetime(time_series_df)
+#
+#     salarios_minimos_array = list()
+#     salarios_maximos_array = list()
+#     salario_uma40_array = list()
+#     DiasCubiertosMensuales_array = list()
+#     PORCENTAJE_PAGO_array = list()
+#
+#     def money_to_float(input_str: str, *args):
+#         for chars in args:
+#             input_str = input_str.replace(chars, '')
+#         return float(input_str.strip())
+#
+#     # Wtih applymap we apply our custom function to each element specified in the iloc
+#     # indexation, we remove the '%' with the replace function and divide by 1e2
+#     TABLA_AUMENTO_PAGOMOD40.iloc[:, 1:] = TABLA_AUMENTO_PAGOMOD40.iloc[:, 1:].map(
+#         lambda x: money_to_float(x, '%') / 1e2)
+#     TABLA_AUMENTO_PAGOMOD40 = TABLA_AUMENTO_PAGOMOD40.set_index('AÑO')
+#     salarios_minimos = TABLA_SALARIOSMINIMOS.loc[:, 'SM DIARIO ($)'].map(lambda x: money_to_float(x, '$'))
+#     salarios_maximos = TABLA_SALARIOSMINIMOS.iloc[:, 6].map(lambda x: money_to_float(x, '$', ','))
+#
+#     for i in range(duration + 1):
+#         if time_series_df.iloc[i].month == 1:
+#             year_considered = time_series_df.iloc[i].year - 1
+#         else:
+#             year_considered = time_series_df.iloc[i].year
+#         # Find the index of rows where the 'AÑO' column equals 'year_considered'
+#
+#         row = tabla_uma[tabla_uma['AÑO'] == year_considered].index
+#         row = row.tolist()[0]
+#         perc_row = tabla_uma.index[tabla_uma['AÑO'] == time_series_df.iloc[i].year].tolist()[0]
+#         salarios_minimos_array.append(salarios_minimos[tabla_uma['AÑO'] == time_series_df.iloc[i].year].tolist()[0])
+#         salarios_maximos_array.append(salarios_maximos[tabla_uma['AÑO'] == time_series_df.iloc[i].year].tolist()[0])
+#         salario_array[i] = min(salarios_maximos_array[i], max(salarios_minimos_array[i], salario_array[i]))
+#
+#         uma_row = tabla_uma.iloc[perc_row, 1]
+#         uma_row = uma_row.replace('$', '')
+#         uma_row = float(uma_row)
+#         salario_uma40_array.append(round(salario_array[i] / uma_row, 1))
+#
+#         #Find the last day of the current month
+#         lastDayOfMonth = time_series_df.iloc[i].replace(day=1) + relativedelta(
+#             day=31)  # Even if the month does not have 31 days, the relative delta manages
+#         # Calculate the number of remaining days
+#         DiasCubiertosMensuales_array.append((lastDayOfMonth - time_series_df.iloc[i]).days + 1)
+#
+#         if salario_uma40_array[i] >= 4.01:
+#             CUOTA_PATRONAL = TABLA_AUMENTO_PAGOMOD40.iloc[perc_row, -2]
+#         elif salario_uma40_array[i] >= 3.51:
+#             CUOTA_PATRONAL = TABLA_AUMENTO_PAGOMOD40.iloc[perc_row, -3]
+#         elif salario_uma40_array[i] >= 3:
+#             CUOTA_PATRONAL = TABLA_AUMENTO_PAGOMOD40.iloc[perc_row, -4]
+#         elif salario_uma40_array[i] >= 2.51:
+#             CUOTA_PATRONAL = TABLA_AUMENTO_PAGOMOD40.iloc[perc_row, -5]
+#         elif salario_uma40_array[i] >= 2:
+#             CUOTA_PATRONAL = TABLA_AUMENTO_PAGOMOD40.iloc[perc_row, -6]
+#         elif salario_uma40_array[i] >= 1.51:
+#             CUOTA_PATRONAL = TABLA_AUMENTO_PAGOMOD40.iloc[perc_row, -7]
+#         elif salario_uma40_array[i] >= 1:
+#             CUOTA_PATRONAL = TABLA_AUMENTO_PAGOMOD40.iloc[perc_row, -8]
+#         else:
+#             CUOTA_PATRONAL = TABLA_AUMENTO_PAGOMOD40.iloc[perc_row, -9]
+#         PORCENTAJE_PAGO_array.append(CUOTA_PATRONAL + CUOTA_OBRERA)
+#
+#     PORCENTAJE_PAGO_array_string = map(lambda x: round(x * 1e2, 2) / 1e2, PORCENTAJE_PAGO_array)
+#     # Wtih map we apply our custom function to each element specified in the iloc
+#     # indexation, we remove the '%' with the replace function and divide by 1e2
+#     time_series_df = time_series_df.map(lambda x: x.strftime('%Y-%m-%d'))
+#     salario_asignado_mensual = salario_array * DiasCubiertosMensuales_array
+#     mes_de_pago = time_series_df.map(lambda x: pd.to_datetime(x).month)
+#     mes_de_pago.replace(
+#         {1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril', 5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto',
+#          9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'}, inplace=True)
+#
+#     # # Pago Mensual
+#     PAGO_MENSUAL_array = (salario_asignado_mensual * PORCENTAJE_PAGO_array).round(2)
+#     pago_acumulado = np.cumsum(PAGO_MENSUAL_array)
+#     tabla_pago40 = pd.DataFrame({'Número de Pago': np.arange(1, duration + 2),
+#                                  'Fechas de Pago': time_series_df,
+#                                  'Día de Inicio de Cobertura': time_series_df.map(lambda x: pd.to_datetime(x).day),
+#                                  'Mes de Pago': mes_de_pago,
+#                                  'Año de Pago': time_series_df.map(lambda x: pd.to_datetime(x).year),
+#                                  'Salario Diario Asignado': salario_array,
+#                                  'Relación Salario/UMA': salario_uma40_array,
+#                                  'Días cubiertos': DiasCubiertosMensuales_array,
+#                                  'Salario Asignado Mensual': salario_asignado_mensual,
+#                                  '% de pago respecto del salario asignado': PORCENTAJE_PAGO_array_string,
+#                                  'Pago Mensual': PAGO_MENSUAL_array,
+#                                  'Pago Acumulado': pago_acumulado,
+#                                  'Salario Mínimo del año en curso': salarios_minimos_array,
+#                                  'Salario Máximo del año en curso': salarios_maximos_array})
+#
+#     tabla_pago40.set_index(np.arange(1, duration + 2), inplace=True)
+#     tabla_pago40_string = tabla_pago40.copy()
+#     tabla_pago40_string[['Salario Diario Asignado', 'Salario Asignado Mensual', 'Pago Mensual', 'Pago Acumulado',
+#                          'Salario Mínimo del año en curso', 'Salario Máximo del año en curso']] = tabla_pago40[
+#         ['Salario Diario Asignado', 'Salario Asignado Mensual', 'Pago Mensual', 'Pago Acumulado',
+#          'Salario Mínimo del año en curso', 'Salario Máximo del año en curso']].map("${:,.2f}".format)
+#     tabla_pago40_string['% de pago respecto del salario asignado'] = (
+#     tabla_pago40['% de pago respecto del salario asignado']).map("{:.2%}".format)
+#     tabla_pago40_string['Fechas de Pago'] = [format_spanish_date(date, date_type="format_string") for date in tabla_pago40['Fechas de Pago']]
+#
+#     return tabla_pago40, tabla_pago40_string
+
+def pagos40(salario, start_date, durata):
     tabla_uma = pd.read_csv('TABLAS/TABLA_UMA.txt', sep='\t')
     TABLA_AUMENTO_PAGOMOD40 = pd.read_csv('TABLAS/TABLA_AUMENTOPAGO40.txt', sep='\t')
     TABLA_SALARIOSMINIMOS = pd.read_csv('TABLAS/TABLA_SALARIOSMINIMOS.txt', sep='\t')
-    CUOTA_OBRERA = 6.925 / 1e2;
+    CUOTA_OBRERA = 6.925 / 1e2
 
-    salario_array = np.full(duration + 1, salario)  # Creates an array with the same value
+    salario_array = np.full(durata, salario)  # Changed from durata + 1 to durata
     second_date = start_date + relativedelta(months=1)
     second_date = second_date.replace(day=1)
 
-    monthly_series = pd.date_range(start=second_date, periods=duration, freq='MS')  # MS: Month Start
+    monthly_series = pd.date_range(start=second_date, periods=durata-1, freq='MS')  # Changed to durata-1
     time_series_df = pd.concat([pd.Series(start_date), pd.Series(monthly_series)])
     time_series_df = pd.to_datetime(time_series_df)
 
@@ -143,21 +259,17 @@ def pagos40(salario, start_date, duration):
             input_str = input_str.replace(chars, '')
         return float(input_str.strip())
 
-    # Wtih applymap we apply our custom function to each element specified in the iloc
-    # indexation, we remove the '%' with the replace function and divide by 1e2
     TABLA_AUMENTO_PAGOMOD40.iloc[:, 1:] = TABLA_AUMENTO_PAGOMOD40.iloc[:, 1:].map(
         lambda x: money_to_float(x, '%') / 1e2)
     TABLA_AUMENTO_PAGOMOD40 = TABLA_AUMENTO_PAGOMOD40.set_index('AÑO')
     salarios_minimos = TABLA_SALARIOSMINIMOS.loc[:, 'SM DIARIO ($)'].map(lambda x: money_to_float(x, '$'))
     salarios_maximos = TABLA_SALARIOSMINIMOS.iloc[:, 6].map(lambda x: money_to_float(x, '$', ','))
 
-    for i in range(duration + 1):
+    for i in range(durata):  # Changed from durata + 1 to durata
         if time_series_df.iloc[i].month == 1:
             year_considered = time_series_df.iloc[i].year - 1
         else:
             year_considered = time_series_df.iloc[i].year
-        # Find the index of rows where the 'AÑO' column equals 'year_considered'
-
         row = tabla_uma[tabla_uma['AÑO'] == year_considered].index
         row = row.tolist()[0]
         perc_row = tabla_uma.index[tabla_uma['AÑO'] == time_series_df.iloc[i].year].tolist()[0]
@@ -170,10 +282,7 @@ def pagos40(salario, start_date, duration):
         uma_row = float(uma_row)
         salario_uma40_array.append(round(salario_array[i] / uma_row, 1))
 
-        #Find the last day of the current month
-        lastDayOfMonth = time_series_df.iloc[i].replace(day=1) + relativedelta(
-            day=31)  # Even if the month does not have 31 days, the relative delta manages
-        # Calculate the number of remaining days
+        lastDayOfMonth = time_series_df.iloc[i].replace(day=1) + relativedelta(day=31)
         DiasCubiertosMensuales_array.append((lastDayOfMonth - time_series_df.iloc[i]).days + 1)
 
         if salario_uma40_array[i] >= 4.01:
@@ -195,42 +304,49 @@ def pagos40(salario, start_date, duration):
         PORCENTAJE_PAGO_array.append(CUOTA_PATRONAL + CUOTA_OBRERA)
 
     PORCENTAJE_PAGO_array_string = map(lambda x: round(x * 1e2, 2) / 1e2, PORCENTAJE_PAGO_array)
-    # Wtih map we apply our custom function to each element specified in the iloc
-    # indexation, we remove the '%' with the replace function and divide by 1e2
     time_series_df = time_series_df.map(lambda x: x.strftime('%Y-%m-%d'))
     salario_asignado_mensual = salario_array * DiasCubiertosMensuales_array
     mes_de_pago = time_series_df.map(lambda x: pd.to_datetime(x).month)
     mes_de_pago.replace(
-        {1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril', 5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto',
-         9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'}, inplace=True)
+        {1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril', 5: 'Mayo', 6: 'Junio',
+         7: 'Julio', 8: 'Agosto', 9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'},
+        inplace=True)
 
-    # # Pago Mensual
     PAGO_MENSUAL_array = (salario_asignado_mensual * PORCENTAJE_PAGO_array).round(2)
     pago_acumulado = np.cumsum(PAGO_MENSUAL_array)
-    tabla_pago40 = pd.DataFrame({'Número de Pago': np.arange(1, duration + 2),
-                                 'Fechas de Pago': time_series_df,
-                                 'Día de Inicio de Cobertura': time_series_df.map(lambda x: pd.to_datetime(x).day),
-                                 'Mes de Pago': mes_de_pago,
-                                 'Año de Pago': time_series_df.map(lambda x: pd.to_datetime(x).year),
-                                 'Salario Diario Asignado': salario_array,
-                                 'Relación Salario/UMA': salario_uma40_array,
-                                 'Días cubiertos': DiasCubiertosMensuales_array,
-                                 'Salario Asignado Mensual': salario_asignado_mensual,
-                                 '% de pago respecto del salario asignado': PORCENTAJE_PAGO_array_string,
-                                 'Pago Mensual': PAGO_MENSUAL_array,
-                                 'Pago Acumulado': pago_acumulado,
-                                 'Salario Mínimo del año en curso': salarios_minimos_array,
-                                 'Salario Máximo del año en curso': salarios_maximos_array})
 
-    tabla_pago40.set_index(np.arange(1, duration + 2), inplace=True)
+    # Create the dataframe with durata rows
+    tabla_pago40 = pd.DataFrame({
+        'Número de Pago': np.arange(1, durata + 1),  # Changed from durata + 2 to durata + 1
+        'Fechas de Pago': time_series_df,
+        'Día de Inicio de Cobertura': time_series_df.map(lambda x: pd.to_datetime(x).day),
+        'Mes de Pago': mes_de_pago,
+        'Año de Pago': time_series_df.map(lambda x: pd.to_datetime(x).year),
+        'Salario Diario Asignado': salario_array,
+        'Relación Salario/UMA': salario_uma40_array,
+        'Días cubiertos': DiasCubiertosMensuales_array,
+        'Salario Asignado Mensual': salario_asignado_mensual,
+        '% de pago respecto del salario asignado': PORCENTAJE_PAGO_array_string,
+        'Pago Mensual': PAGO_MENSUAL_array,
+        'Pago Acumulado': pago_acumulado,
+        'Salario Mínimo del año en curso': salarios_minimos_array,
+        'Salario Máximo del año en curso': salarios_maximos_array
+    })
+
+    tabla_pago40.set_index(np.arange(1, durata + 1), inplace=True)  # Changed from durata + 2 to durata + 1
+
+    # Format the string version
     tabla_pago40_string = tabla_pago40.copy()
-    tabla_pago40_string[['Salario Diario Asignado', 'Salario Asignado Mensual', 'Pago Mensual', 'Pago Acumulado',
-                         'Salario Mínimo del año en curso', 'Salario Máximo del año en curso']] = tabla_pago40[
-        ['Salario Diario Asignado', 'Salario Asignado Mensual', 'Pago Mensual', 'Pago Acumulado',
-         'Salario Mínimo del año en curso', 'Salario Máximo del año en curso']].map("${:,.2f}".format)
+    tabla_pago40_string[['Salario Diario Asignado', 'Salario Asignado Mensual', 'Pago Mensual',
+                        'Pago Acumulado', 'Salario Mínimo del año en curso',
+                        'Salario Máximo del año en curso']] = tabla_pago40[
+        ['Salario Diario Asignado', 'Salario Asignado Mensual', 'Pago Mensual',
+         'Pago Acumulado', 'Salario Mínimo del año en curso',
+         'Salario Máximo del año en curso']].map("${:,.2f}".format)
     tabla_pago40_string['% de pago respecto del salario asignado'] = (
-    tabla_pago40['% de pago respecto del salario asignado']).map("{:.2%}".format)
-    tabla_pago40_string['Fechas de Pago'] = [format_spanish_date(date, date_type="format_string") for date in tabla_pago40['Fechas de Pago']]
+        tabla_pago40['% de pago respecto del salario asignado']).map("{:.2%}".format)
+    tabla_pago40_string['Fechas de Pago'] = [format_spanish_date(date, date_type="format_string")
+                                            for date in tabla_pago40['Fechas de Pago']]
 
     return tabla_pago40, tabla_pago40_string
 
