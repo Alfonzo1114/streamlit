@@ -1,5 +1,4 @@
-Inferior	Superior	"Porcentaje cuantía básica 
-[%]"	Salario incremento anual [%]
+Inferior	Superior	Porcentaje cuantía básica [%]	Salario incremento anual [%]
 0.00	1.00	80.00%	0.563%
 1.01	1.25	77.11%	0.814%
 1.26	1.50	58.18%	1.178%

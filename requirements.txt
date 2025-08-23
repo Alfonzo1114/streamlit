@@ -1,8 +1,8 @@
-streamlit>=1.24.0
-pandas>=1.5.0
-numpy>=1.21.0
-pdfplumber>=0.9.0
-python-dateutil>=2.8.2
+streamlit>=1.32.0
+pandas>=2.2.0
+numpy>=1.26.0
+pdfplumber>=0.11.0
+python-dateutil>=2.9.0
 streamlit-extras>=0.3.0
 plotly>=5.18.0
 docxtpl>=0.20.1
